@@ -1,18 +1,19 @@
 package main
 
 import (
+	"github.com/edikgoose/bot/internal/app/commands"
 	"log"
 	"os"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/edikgoose/bot/internal/service/product"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	godotenv.Load()
 	token := os.Getenv("TOKEN")
-	
+
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Panic(err)
@@ -27,51 +28,20 @@ func main() {
 
 	updates := bot.GetUpdatesChan(u)
 
-
 	productService := product.NewService()
+
+	commander := commands.NewCommander(bot, productService)
 
 	for update := range updates {
 		if update.Message != nil { // If we got a message
 			switch update.Message.Command() {
 			case "help":
-				helpCommand(bot, update.Message)
+				commander.Help(update.Message)
 			case "list":
-				listCommand(bot, update.Message, productService)
+				commander.List(update.Message)
 			default:
-				defaultBehavior(bot, update.Message)
+				commander.Default(update.Message)
 			}
-		}	
-		
+		}
 	}
-}
-
-func helpCommand(bot *tgbotapi.BotAPI, inputMessage *tgbotapi.Message) {
-	msg := tgbotapi.NewMessage(inputMessage.Chat.ID, 
-		"/help - help\n" +
-			"/list - list products",
-		)
-
-	bot.Send(msg)
-}
-
-func listCommand(bot *tgbotapi.BotAPI, inputMessage *tgbotapi.Message, productService *product.Service) {
-	outputMsgText := "Here all products: \n\n"
-	products := productService.List()
-	for _, p := range products {
-		outputMsgText += p.Title
-		outputMsgText += "\n"
-	}
-	
-	msg := tgbotapi.NewMessage(inputMessage.Chat.ID, outputMsgText)
-
-	bot.Send(msg)
-}
-
-func defaultBehavior(bot *tgbotapi.BotAPI, inputMessage *tgbotapi.Message) {
-	log.Printf("[%s] %s", inputMessage.From.UserName, inputMessage.Text)
-
-	msg := tgbotapi.NewMessage(inputMessage.Chat.ID, "You wrote: " + inputMessage.Text)
-	// msg.ReplyToMessageID = update.Message.MessageID
-
-	bot.Send(msg)
 }
